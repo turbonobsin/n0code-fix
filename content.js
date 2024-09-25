@@ -3,11 +3,13 @@ console.log("n0code tweaks loaded");
 class Obj{
     constructor(/**@type {HTMLElement}*/e){
         this.ref = e.cloneNode(true);
-        let a = e.querySelector("a");
+        let a = this.ref.querySelector("a");
+
+        // this.ref.style.transform = "translate(-50%,-50%)";
         
         this.link = a.href;
         this.text = a.textContent;
-        this.w = e.getBoundingClientRect().width/2;
+        this.w = this.ref.getBoundingClientRect().width/2;
 
         this.x = Math.random()*(innerWidth-150);
         this.y = Math.random()*(innerHeight-150);
@@ -60,7 +62,7 @@ function run(){
         // o.y = Math.random()*(innerHeight-150);
 
         let ang = Math.random()*6.28;
-        let amt = 10;
+        let amt = 20;
         o.ax = Math.cos(ang)*amt;
         o.ay = Math.sin(ang)*amt;
 
@@ -96,9 +98,27 @@ function update(){
         
         a.x += a.vx;
         a.y += a.vy;
+
+        let margin = a.w;
+        if(a.x < margin){
+            a.x = margin;
+            a.vx = Math.abs(a.ax);
+        }
+        else if(a.x >= innerWidth-margin){
+            a.x = innerWidth-margin-1;
+            a.vx = -Math.abs(a.vx);
+        }
+        if(a.y < margin){
+            a.y = margin;
+            a.vy = Math.abs(a.ay);
+        }
+        else if(a.y >= innerHeight-margin){
+            a.y = innerHeight-margin-1;
+            a.vy = -Math.abs(a.vy);
+        }
     }
 
-    if(false) for(let i = 0; i < objs.length; i++){
+    if(true) for(let i = 0; i < objs.length; i++){
         let o1 = objs[i];
         for(let j = i+1; j < objs.length; j++){
             let o2 = objs[j];
@@ -108,7 +128,16 @@ function update(){
             let dist = Math.sqrt(dx**2+dy**2);
             let ang = Math.atan2(dy,dx);
 
-            o1.vx
+            if(dist < o1.w+o2.w){
+                // o1.vx -= dx/2;
+                // o1.vy -= dy/2;
+                // o2.vx += dx/2;
+                // o2.vy += dy/2;
+                o1.x -= dx/2;
+                o1.y -= dy/2;
+                o2.x += dx/2;
+                o2.y += dy/2;
+            }
         }
     }
     
