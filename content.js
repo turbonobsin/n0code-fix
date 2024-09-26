@@ -1,6 +1,47 @@
 console.log("n0code tweaks loaded");
 document.body.style.overflow = "hidden";
 
+document.addEventListener("keydown",async e=>{
+    if(e.altKey){
+        if(e.key == "c"){
+            let [file] = await showOpenFilePicker({
+                id:"custom_css"
+            });
+            if(!file) return;
+
+            let res = await file.requestPermission();
+            if(res == "denied") return;
+
+            let s = await (await file.getFile()).text();
+            localStorage.setItem("__customCSS",s);
+            loadCustomCSS(s);
+        }
+        else if(e.key == "d"){
+            localStorage.clear();
+            clearCSS();
+        }
+    }
+});
+
+function clearCSS(){
+    let existing = document.querySelector(".custom-style");
+    if(existing) existing.remove();
+}
+function loadCustomCSS(s=""){
+    clearCSS();
+    
+    let customStyle = document.createElement("style");
+    customStyle.rel = "stylesheet";
+    customStyle.innerHTML = s;
+    customStyle.className = "custom-style";
+    document.head.appendChild(customStyle);
+}
+function init(){
+    let s = localStorage.getItem("__customCSS");
+    if(s) loadCustomCSS(s);
+}
+init();
+
 class Obj{
     constructor(/**@type {HTMLElement}*/e){
         this.ref = e.cloneNode(true);
@@ -133,7 +174,7 @@ function update(){
         a.update();
     }
 
-    if(true) for(let i = 0; i < objs.length; i++){
+    for(let i = 0; i < objs.length; i++){
         let o1 = objs[i];
         for(let j = i+1; j < objs.length; j++){
             let o2 = objs[j];
