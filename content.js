@@ -143,6 +143,9 @@ document.addEventListener("keydown",async e=>{
             let res = await handle.requestPermission({mode:"read"});
             if(res == "denied") return;
 
+            localStorage.clear();
+            clearCSS();
+
             let reg = new CustomPack();
             async function search(/**@type {FileSystemDirectoryHandle}*/handle){
                 for await(const [name,h] of handle.entries()){
