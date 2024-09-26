@@ -372,12 +372,33 @@ class Obj{
         this.x = Math.random()*(innerWidth-150);
         this.y = Math.random()*(innerHeight-150);
 
-        this.ref.addEventListener("mouseenter",e=>{
-            this.vx = 0;
-            this.vy = 0;
-            this.ax = 0;
-            this.ay = 0;
-            this.update();
+        let lvx = 0;
+        let lvy = 0;
+        let lax = 0;
+        let lay = 0;
+        let over = false;
+        let t = this;
+        this.ref.addEventListener("mouseenter",function(e){
+            if(!over){
+                lvx = t.vx;
+                lvy = t.vy;
+                lax = t.ax;
+                lay = t.ay;
+            }
+            over = true;
+            t.vx = 0;
+            t.vy = 0;
+            t.ax = 0;
+            t.ay = 0;
+            t.update();
+        });
+        this.ref.addEventListener("mouseleave",function(e){
+            over = false;
+            t.vx = lvx;
+            t.vy = lvy;
+            t.ax = lax;
+            t.ay = lay;
+            t.update();
         });
     }
     link = "";
