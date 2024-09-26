@@ -198,24 +198,37 @@ document.addEventListener("keydown",async e=>{
             showCmdPalette();
         }
     }
+    if((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() == "p"){
+        e.preventDefault();
+        showCmdPalette();
+    }
+});
+document.addEventListener("mousedown",e=>{
+    if(e.shiftKey && e.button == 0){
+        e.preventDefault();
+        showCmdPalette();
+    }
 });
 
-/**@type {Record<string,{title:string,run:()=>void}>} */
+/**@type {Record<string,{title:string,run:()=>void,key:string}>} */
 let cmds = {
     loadPack:{
         title:"Load Pack",
+        key:"Alt+F",
         run:()=>{
             CustomPack.reload();
         }
     },
     regenGlobalVars:{
         title:"Regenerate Global Vars",
+        key:"Alt+G",
         run:()=>{
             genGlobalVars();
         }
     },
     reset:{
         title:"Reset Tweaks",
+        key:"Alt+R",
         run:()=>{
             localStorage.clear();
             clearCSS();
@@ -224,6 +237,7 @@ let cmds = {
     },
     customCSS:{
         title:"Apply Custom CSS File",
+        key:"Alt+C",
         run:async ()=>{
             let [file] = await showOpenFilePicker({
                 id:"custom_css"
@@ -257,15 +271,54 @@ function showCmdPalette(){
         border:solid 1px #111;
         padding:5px;
         border-radius:5px;
+        z-index:999;
+        color:#eee;
+        font-size:10px;
+        box-shadow:0px 5px 10px rgba(0,0,0,0.3);
     `;
 
     let ok = Object.keys(cmds);
+
+    let heading = document.createElement("div");
+    heading.innerHTML = `
+        <div style="margin:5px;font-size:11px;color:#ccc;margin-bottom:5px">Command Palette</div>
+    `;
+    cont.appendChild(heading);
+    let hr = document.createElement("hr");
+    hr.style.margin = "5px";
+    cont.appendChild(hr);
+
     for(const id of ok){
         let cmd = cmds[id];
         let d = document.createElement("div");
         d.innerHTML = `
             <div>${cmd.title}</div>
+            <div style="color:#ccc;font-size:8px">${cmd.key}</div>
         `;
+        d.style = `
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            padding:4px 7px;
+            user-select:none;
+            -webkit-user-select:none;
+            border-radius:3px;
+            gap:30px;
+            cursor:pointer;
+        `;
+        cont.appendChild(d);
+
+        d.addEventListener("mouseenter",e=>{
+            d.style.backgroundColor = "#555";
+        });
+        d.addEventListener("mouseleave",e=>{
+            d.style.backgroundColor = null;
+        });
+
+        d.addEventListener("click",e=>{
+            cmd.run();
+            cont.remove();
+        });
     }
 
     document.body.insertBefore(cont,document.body.children[0]);
@@ -492,3 +545,24 @@ function genGlobalVars(){
     }
 }
 genGlobalVars();
+
+let allElms = document.querySelectorAll("*");
+for(const a of allElms){
+    /**@type {HTMLElement}*/
+    let e = a;
+    
+    // --cmd-gen-html: div 10
+    let gen = getComputedStyle(e).getPropertyValue("--cmd-gen-html");
+    console.log("GEN: ",gen);
+    if(gen != ""){
+        let parts = gen.split(" ");
+        let amt = parseInt(parts[1]);
+        for(let i = 0; i < amt; i++){
+            let elm = document.createElement(parts[0]);
+            elm.classList.add("child","child-"+i);
+            if(parts[2]) elm.classList.add(parts[2]);
+            e.appendChild(elm);
+        }
+    }
+
+}
