@@ -1,5 +1,6 @@
 console.log("n0code tweaks loaded");
 document.body.style.overflow = "hidden";
+let root = document.body.parentElement;
 
 class RegImg{
     static async create(/**@type {File}*/f){
@@ -28,7 +29,7 @@ class RegImg{
     register(){
         let id = this.getID();
         console.log("> registered img with id: ",id);
-        document.body.parentElement.style.setProperty(id,`url(${this.url})`);
+        root.style.setProperty(id,`url(${this.url})`);
     }
 
     serialize(){
@@ -76,7 +77,65 @@ class RegCSS{
     }
 }
 
+/**@type {CustomPack} */
+let curPack = null;
 class CustomPack{
+    constructor(/**@type {FileSystemDirectoryHandle}*/h){
+        this.h = h;
+    }
+    /**@type {FileSystemDirectoryHandle} */
+    h;
+
+    static async reload(){
+        let handle = this.h;
+        if(!handle){
+            try{
+                handle = await showDirectoryPicker({
+                    id:"custom_folder",
+                    mode:"read"
+                });
+            }
+            catch(e){
+                return;
+            }
+        }
+        if(!handle) return;
+
+        let res = await handle.requestPermission({mode:"read"});
+        if(res == "denied") return;
+
+        this.h = handle;
+
+        localStorage.clear();
+        clearCSS();
+
+        let reg = new CustomPack(handle);
+        
+        async function search(/**@type {FileSystemDirectoryHandle}*/handle){
+            for await(const [name,h] of handle.entries()){
+                console.log("n: ",name,h.kind);
+                let ext = name.split(".").pop();
+                if(h.kind == "file"){
+                    let f = await h.getFile();
+                    if(f.type.startsWith("image/")){
+                        reg.images.push(await RegImg.create(f));
+                    }
+                    else if(ext == "css"){
+                        let r = await RegCSS.create(f);
+                        reg.css.push(r);
+                    }
+                }
+                else await search(h);
+            }
+        }
+        await search(handle);
+
+        console.log("REG:",reg);
+
+        reg.registerAll();
+        reg.save();
+    }
+    
     /**@type {RegImg[]} */
     images = [];
 
@@ -101,6 +160,8 @@ class CustomPack{
         }
 
         p.registerAll();
+
+        curPack = p;
         return p;
     }
 
@@ -117,6 +178,53 @@ class CustomPack{
 document.addEventListener("keydown",async e=>{
     if(e.altKey){
         if(e.key == "c"){ // apply custom CSS
+            e.preventDefault();
+            cmds.customCSS.run();
+        }
+        else if(e.key == "r" || e.key == "d"){ // clear custom CSS
+            e.preventDefault();
+            cmds.reset.run();
+        }
+        else if(e.key == "f"){
+            e.preventDefault();
+            cmds.loadPack.run();
+        }
+        else if(e.key == "g"){
+            e.preventDefault();
+            cmds.regenGlobalVars.run();
+        }
+        else if(e.key == "w"){
+            e.preventDefault();
+            showCmdPalette();
+        }
+    }
+});
+
+/**@type {Record<string,{title:string,run:()=>void}>} */
+let cmds = {
+    loadPack:{
+        title:"Load Pack",
+        run:()=>{
+            CustomPack.reload();
+        }
+    },
+    regenGlobalVars:{
+        title:"Regenerate Global Vars",
+        run:()=>{
+            genGlobalVars();
+        }
+    },
+    reset:{
+        title:"Reset Tweaks",
+        run:()=>{
+            localStorage.clear();
+            clearCSS();
+            curPack = null;
+        }
+    },
+    customCSS:{
+        title:"Apply Custom CSS File",
+        run:async ()=>{
             let [file] = await showOpenFilePicker({
                 id:"custom_css"
             });
@@ -129,50 +237,39 @@ document.addEventListener("keydown",async e=>{
             localStorage.setItem("__customCSS",s);
             loadCustomCSS(s);
         }
-        else if(e.key == "r" || e.key == "d"){ // clear custom CSS
-            localStorage.clear();
-            clearCSS();
-        }
-        else if(e.key == "f"){
-            let handle = await showDirectoryPicker({
-                id:"custom_folder",
-                mode:"read"
-            });
-            if(!handle) return;
-
-            let res = await handle.requestPermission({mode:"read"});
-            if(res == "denied") return;
-
-            localStorage.clear();
-            clearCSS();
-
-            let reg = new CustomPack();
-            async function search(/**@type {FileSystemDirectoryHandle}*/handle){
-                for await(const [name,h] of handle.entries()){
-                    console.log("n: ",name,h.kind);
-                    let ext = name.split(".").pop();
-                    if(h.kind == "file"){
-                        let f = await h.getFile();
-                        if(f.type.startsWith("image/")){
-                            reg.images.push(await RegImg.create(f));
-                        }
-                        else if(ext == "css"){
-                            let r = await RegCSS.create(f);
-                            reg.css.push(r);
-                        }
-                    }
-                    else await search(h);
-                }
-            }
-            await search(handle);
-
-            console.log("REG:",reg);
-
-            reg.registerAll();
-            reg.save();
-        }
     }
-});
+};
+
+function showCmdPalette(){
+    let existing = document.querySelector(".__tweaks-cmd-palette");
+    if(existing){
+        existing.remove();
+        return;
+    }
+    let cont = document.createElement("div");
+    cont.className = "__tweaks-cmd-palette";
+    cont.style = `
+        position:absolute;
+        top:10px;
+        left:50%;
+        transform:translate(-50%,0px);
+        background-color:#333;
+        border:solid 1px #111;
+        padding:5px;
+        border-radius:5px;
+    `;
+
+    let ok = Object.keys(cmds);
+    for(const id of ok){
+        let cmd = cmds[id];
+        let d = document.createElement("div");
+        d.innerHTML = `
+            <div>${cmd.title}</div>
+        `;
+    }
+
+    document.body.insertBefore(cont,document.body.children[0]);
+}
 
 function loadPack(){
     let pack = localStorage.getItem("__customPack");
@@ -391,7 +488,7 @@ run();
 // global vars
 function genGlobalVars(){
     for(let i = 0; i < 50; i++){
-        document.body.parentElement.style.setProperty("--rand"+i,Math.random());
+        root.style.setProperty("--rand"+i,Math.random());
     }
 }
 genGlobalVars();

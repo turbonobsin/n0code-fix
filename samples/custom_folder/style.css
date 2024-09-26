@@ -3,7 +3,13 @@ body{
 }
 
 .roundbutton{
-    background-image:var(--img-purple_png);
-    width:calc(var(--rand0) * 70px + 80px);
-    height:calc(var(--rand1) * 70px + 80px);
+    /* width:30px; */
+    /* height:30px; */
+    
+    /* background-image:var(--img-purple_png); */
+
+    /* width:calc(var(--rand0) * 70px + 80px); */
+    /* height:calc(var(--rand1) * 70px + 80px); */
+
+    background-color:rgb(calc(var(--rand0) * 256),calc(var(--rand1) * 256),calc(var(--rand2) * 256)) !important;
 }
