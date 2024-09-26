@@ -188,8 +188,10 @@ function loadPack(){
 loadPack();
 
 function clearCSS(){
-    let existing = document.querySelector(".custom-style");
-    if(existing) existing.remove();
+    let existing = document.querySelectorAll(".custom-style");
+    for(const a of existing){
+        a.remove();
+    }
 }
 function loadCustomCSS(s=""){
     clearCSS();
@@ -276,6 +278,8 @@ function run(){
     for(const o of objs){
         let lx = o.x;
         let ly = o.y;
+
+        o.w = o.ref.getBoundingClientRect().width/2;
 
         let ang = Math.random()*6.28;
         let amt = 0.05;
@@ -383,3 +387,11 @@ setTimeout(()=>{
 
 update();
 run();
+
+// global vars
+function genGlobalVars(){
+    for(let i = 0; i < 50; i++){
+        document.body.parentElement.style.setProperty("--rand"+i,Math.random());
+    }
+}
+genGlobalVars();

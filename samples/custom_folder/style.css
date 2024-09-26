@@ -4,4 +4,6 @@ body{
 
 .roundbutton{
     background-image:var(--img-purple_png);
+    width:calc(var(--rand0) * 70px + 80px);
+    height:calc(var(--rand1) * 70px + 80px);
 }
