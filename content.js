@@ -3,7 +3,7 @@ document.body.style.overflow = "hidden";
 
 document.addEventListener("keydown",async e=>{
     if(e.altKey){
-        if(e.key == "c"){
+        if(e.key == "c"){ // apply custom CSS
             let [file] = await showOpenFilePicker({
                 id:"custom_css"
             });
@@ -16,7 +16,7 @@ document.addEventListener("keydown",async e=>{
             localStorage.setItem("__customCSS",s);
             loadCustomCSS(s);
         }
-        else if(e.key == "d"){
+        else if(e.key == "r" || e.key == "d"){ // clear custom CSS
             localStorage.clear();
             clearCSS();
         }
