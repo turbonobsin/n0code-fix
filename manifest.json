@@ -1,8 +1,8 @@
 {
 	"manifest_version": 3,
-	"name": "My Extension",
+	"name": "n0code Tweaks",
 	"version": "1.0",
-	"description": "A basic Chrome extension using Manifest V3",
+	"description": "A simple extension to make the n0code courses site a little more interesting.",
 	"permissions": [
 		"activeTab",
 		"scripting"
