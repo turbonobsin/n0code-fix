@@ -1,0 +1,79 @@
+.__tweaks-cmd-palette{
+    position:absolute;
+    top:10px;
+    left:50%;
+    transform:translate(-50%,0px);
+    background-color:#333;
+    border:solid 1px #111;
+    padding:5px;
+    border-radius:5px;
+    z-index:999;
+    color:#eee;
+    font-size:10px;
+    box-shadow:0px 5px 10px rgba(0,0,0,0.3);
+
+    & hr{
+        margin:5px;
+        border-color:#555;
+    }
+}
+
+.__tweaks-cmd{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:4px 7px;
+    user-select:none;
+    -webkit-user-select:none;
+    border-radius:3px;
+    gap:30px;
+    cursor:pointer;
+    position:relative;
+}
+.__tweaks-cmd:hover{
+    background-color:#555;
+}
+
+.__tweaks-cmd-keybind{
+    color:#ccc;
+    font-size:8px;
+}
+
+.__tweaks-cmd-title{
+    margin:10px 5px;
+    font-size:11px;
+    color:#ccc;
+}
+
+.__tweaks-cmd-subfolder{
+    position:absolute;
+    width:200px;
+    translate: 50%;
+    left: 100%;
+    top: -5px;
+}
+
+.activePack{
+    background-color:royalblue;
+    color:whitesmoke;
+}
+.remove-btn{
+    background-color:#a55;
+    font-size:9px;
+    color:whitesmoke;
+    padding:5px;
+    border:none;
+    border-radius:3px;
+    width:20px;
+    height:20px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    &:hover{
+        background-color:#c77;
+    }
+    &:active{
+        background-color:#533;
+    }
+}

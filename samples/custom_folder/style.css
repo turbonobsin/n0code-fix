@@ -1,14 +1,23 @@
+/* !!! - All commands must be located in the .__cmds__ class */
 .__cmds__{
-    /* --cmd-define-html:"roundbtn" {"tag":"div","className":"roundbutton"} "<a>Some Text</a>" */
-    /* --cmd-define-html:
-        "roundbtn" ["div","roundbutton"] "<a>Some Text</a>",
-        "test" ["div","btn"] "<button>Hi There!</button>" */
+    /* !!! - You can put -1, -2, whatever at the end of commands that already exist and you want one to happen after */
+    /*
+        for example:
+        --cmd-define-html: // your first element
+        --cmd-gen-html: // generate it
+        --cmd-define-html-1: // a second element
+        --cmd-gen-html-1: // generate again
+    */
     --cmd-define-html-1:"test" ["div","btn"] "<button>Hi There!</button>";
 
 
-    --cmd-define-html:"roundbtn" ["div","roundbutton","","position:absolute"] "<a></a>";
-    --cmd-gen-html:body $roundbtn 10;
+    /* !!! - Generate 10 new roundbuttons */
+    --cmd-define-html:"roundbtn" ["div","roundbutton","","position:absolute"] "<a></a>"; /* <name> [<tag>,<class>,<id>,<style>] <inner_html> --- define "roundbtn" that is a div.roundbutton with no id and a style of position:absolute. Then put the innerHTML of <a></a> in it. */
+    --cmd-gen-html:body "$roundbtn" 10; /* <parent_selector> <id or tag name to generate> <count> --- generate 10 roundbtn elements onto things that get selected by the selector "body" */
 }
+
+
+/* From this point it's random testing */
 
 body{
     background-color:#334;

@@ -2,16 +2,208 @@ console.log("n0code tweaks loaded");
 document.body.style.overflow = "hidden";
 let root = document.body.parentElement;
 
+function clearStorage(){
+    localStorage.removeItem("__customCSS");
+    localStorage.removeItem("__customPack");
+    localStorage.removeItem("activePack");
+}
+
+// database
+
+let dbLoadedRes;
+let dbLoadedProm = new Promise(resolve=>dbLoadedRes = resolve);
+
+let dbReq = indexedDB.open("main",3);
+/**@type {IDBDatabase}*/
+let db;
+/**@type {IDBObjectStore}*/
+let recentsStore;
+dbReq.addEventListener("upgradeneeded",e=>{
+    /**@type {IDBOpenDBRequest}*/
+    let req = e.target;
+
+    let db = req.result;
+
+    console.log("upgrading db");
+
+    if(!db.objectStoreNames.contains("recents")) db.createObjectStore("recents");
+
+    let store = req.transaction.objectStore("recents");
+    if(!store.indexNames.contains("handle")) store.createIndex("handle","handle",{unique:true});
+});
+dbReq.addEventListener("success",e=>{
+    dbLoadedRes();
+
+    console.log("successfully opened recent files db");
+    db = dbReq.result;
+
+    recentsStore = db.transaction("recents","readwrite").objectStore("recents");
+
+    recentsStore.count().onsuccess = (e)=>{
+        console.log("AMT: ",e.target.result);
+    };
+    // store.put()
+});
+dbReq.addEventListener("error",e=>{
+    console.warn("ERROR opening db",e);
+});
+dbReq.addEventListener("blocked",e=>{
+    console.warn("ERROR db blocked",e);
+});
+
+/**@returns {Promise<any[]>}*/
+async function getRecentFiles(){
+    let list = [];
+
+    let t = db.transaction(["recents"],"readonly");
+    let store = t.objectStore("recents");
+
+    return new Promise(resolve=>{
+        let cur = store.openCursor();
+        let i = 0;
+        cur.onsuccess = function(e){
+            let cursor = (e.target).result;
+            if(!cursor){
+                // list.sort((a,b)=>new Date(a).getTime() - new Date(b).getTime())
+                list.reverse();
+                resolve(list);
+                return;
+            }
+
+            list.push(cursor.value);
+
+            i++;
+            cursor.continue();
+        };
+        cur.onerror = function(e){
+            console.warn("Failed to open cursor");
+            resolve(null);
+        };
+    })
+}
+/**@type {Promise<any[]>}*/
+async function getRecentFileKeys(){
+    let t = db.transaction(["recents"],"readonly");
+    let store = t.objectStore("recents");
+
+    return new Promise(resolve=>{
+        let req = store.getAllKeys();
+        req.onsuccess = function(e){
+            console.log("success");
+            let list = (e.target).result;
+            list.sort((a,b)=>new Date(a).getTime() - new Date(b).getTime());
+            resolve(list);
+        };
+        req.onerror = function(e){
+            console.warn("Failed to get recent file keys");
+            resolve(null);
+        };
+    })
+}
+/**@returns {Promise<boolean>}*/
+async function addToRecentFiles(/**@type {FileSystemFileHandle}*/ handle){
+    if(!handle){
+        console.warn("Canceled add, handle was null");
+        return false;
+    }
+
+    let start = performance.now();
+    let files = await getRecentFiles();
+    let alreadyThere = false;
+    let existingDate = null;
+    for(const v of files){
+        if(await handle.isSameEntry(v.handle)){
+            alreadyThere = true
+            existingDate = v.date;
+            break;
+        }
+    }
+    // if(alreadyThere){
+    //     // console.warn("canceled, already in the recent files list");
+    //     return false;
+    // }
+
+    let t = db.transaction(["recents"],"readwrite");
+    let store = t.objectStore("recents");
+
+    return new Promise(resolve=>{
+        let date = new Date().toISOString();
+        let id = date;
+        let v = {
+            date,
+            handle
+        };
+        if(existingDate) store.delete(existingDate);
+        let req = store.put(v,id);
+        req.onsuccess = function(e){
+            console.log("TAX time: ",performance.now()-start);
+            resolve(true);
+        };
+        req.onerror = function(e){
+            resolve(false);
+        };
+    })
+}
+
+async function removeFromRecentFiles(/**@type {FileSystemFileHandle}*/ handle){
+    if(!handle){
+        console.warn("Canceled add, handle was null");
+        return false;
+    }
+
+    let list = await getRecentFiles();
+    /**@type {FileSystemFileHandle}*/
+    let v;
+    for(const v1 of list){
+        if(await handle.isSameEntry(v1.handle)) v = v1;
+    }
+    if(!v){
+        alert("Failed to remove from recents, it wasn't in the recents list");
+        console.warn("Failed to remove from recents, it wasn't in the recents list",list,handle);
+        return false;
+    }
+
+    let t = db.transaction(["recents"],"readwrite");
+    let store = t.objectStore("recents");
+
+    return new Promise(resolve=>{
+        let req = store.delete(v.date);
+        req.onsuccess = function(e){
+            resolve(true);
+        };
+        req.onerror = function(e){
+            resolve(false);
+        };
+    });
+}
+
+/**@returns {Promise<boolean>}*/
+async function clearRecentFiles(){
+    let t = db.transaction(["recents"],"readwrite");
+    let store = t.objectStore("recents");
+
+    let req = store.clear();
+    return new Promise(resolve=>{
+        req.onsuccess = function(e){
+            resolve(true);
+        };
+        req.onerror = function(e){
+            resolve(false);
+        };
+    });
+}
+
+//
+
 class RegImg{
     static async create(/**@type {File}*/f){
         let t = new RegImg();
         t.name = f.name;
         t.f = f;
 
-        let url = URL.createObjectURL(t.f);
-        t.url = url;
+        t.url = URL.createObjectURL(t.f);
 
-        t.buf = Array.from(new Uint8Array(await f.arrayBuffer()));
+        t.buf = new Uint8Array(await f.arrayBuffer());
 
         return t;
     }
@@ -35,7 +227,7 @@ class RegImg{
     serialize(){
         return {
             name:this.name,
-            buf:this.buf
+            buf:Array.from(this.buf)
         };
     }
     static deserialize(data){
@@ -86,8 +278,15 @@ class CustomPack{
     /**@type {FileSystemDirectoryHandle} */
     h;
 
-    static async reload(){
+    postLoad(){
+        readCSSCmds();
+        console.log("RUN POST",objs.length);
+        run();
+    }
+
+    async reload(force=false){
         let handle = this.h;
+        if(force) handle = null;
         if(!handle){
             try{
                 handle = await showDirectoryPicker({
@@ -101,13 +300,17 @@ class CustomPack{
         }
         if(!handle) return;
 
-        let res = await handle.requestPermission({mode:"read"});
+        let res = await handle.requestPermission();
         if(res == "denied") return;
 
         this.h = handle;
+        let recentRes = await addToRecentFiles(handle);
+        if(recentRes) console.log("Saved handle to recents successfully");
 
-        localStorage.clear();
+        clearStorage();
         clearCSS();
+
+        localStorage.setItem("activePack",handle.name);
 
         let reg = new CustomPack(handle);
         
@@ -134,6 +337,8 @@ class CustomPack{
 
         reg.registerAll();
         reg.save();
+
+        this.postLoad();
     }
     
     /**@type {RegImg[]} */
@@ -162,6 +367,7 @@ class CustomPack{
         p.registerAll();
 
         curPack = p;
+        setTimeout(()=>{ p.postLoad(); },0);
         return p;
     }
 
@@ -176,7 +382,9 @@ class CustomPack{
 }
 
 document.addEventListener("keydown",async e=>{
-    if(e.altKey){
+    let k = e.key.toLowerCase();
+
+    if(e.altKey && !e.shiftKey && !e.ctrlKey){
         if(e.key == "c"){ // apply custom CSS
             e.preventDefault();
             cmds.customCSS.run();
@@ -187,7 +395,7 @@ document.addEventListener("keydown",async e=>{
         }
         else if(e.key == "f"){
             e.preventDefault();
-            cmds.loadPack.run();
+            cmds.reloadPack.run();
         }
         else if(e.key == "g"){
             e.preventDefault();
@@ -196,6 +404,26 @@ document.addEventListener("keydown",async e=>{
         else if(e.key == "w"){
             e.preventDefault();
             showCmdPalette();
+        }
+    }
+    if(e.ctrlKey && !e.shiftKey && !e.altKey){
+        if(e.key == "o") {
+            e.preventDefault();
+            cmds.openPack.run();
+        }
+    }
+    if(e.shiftKey && !e.ctrlKey && !e.altKey){
+        if(k == "r"){
+            e.preventDefault();
+            cmds.reloadPack.run();
+        }
+        else if(k == "w"){
+            e.preventDefault();
+            showCmdPalette();
+        }
+        else if(k == "g"){
+            e.preventDefault();
+            cmds.regenGlobalVars.run();
         }
     }
     if((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() == "p"){
@@ -210,18 +438,106 @@ document.addEventListener("mousedown",e=>{
     }
 });
 
-/**@type {Record<string,{title:string,run:()=>void,key:string}>} */
+class CmdItem{
+    constructor(title) {
+        this.title = title;
+    }
+    /**@type {string}*/
+    title;
+}
+class CmdFolder extends CmdItem{
+    constructor(title="",/**@type {()=>Promise<CmdItem[]>}*/ getCmds) {
+        super(title);
+        this.getCmds = getCmds;
+    }
+    /**@type {()=>Promise<CmdItem[]>}*/
+    getCmds;
+    onView;
+}
+class CmdAction extends CmdItem{
+    /**@type {()=>void}*/
+    run;
+    /**@type {string}*/
+    key;
+}
+
+function reloadPack(force=false){
+    if(!curPack) new CustomPack(null).reload(true);
+    else curPack.reload(force);
+}
+
+/**@type {Record<string,CmdItem>} */
 let cmds = {
-    loadPack:{
-        title:"Load Pack",
-        key:"Alt+F",
+    recentPacks:{
+        title:"Recent Packs",
+        getCmds:async ()=>{
+            let res = await getRecentFiles();
+            return res.map(v=>{
+                return {
+                    title:v.handle.name,
+                    handle:v.handle,
+                    run:()=>{
+                        curPack = new CustomPack(v.handle);
+                        reloadPack();
+                        localStorage.setItem("activePack",v.handle.name);
+                    }
+                };
+            })
+            // return [
+            //     {
+            //         title:"Pack 1",
+            //         run:()=>{
+            //             console.log("load: Pack 1");
+            //         }
+            //     },
+            //     {
+            //         title:"Pack 2",
+            //         run:()=>{
+            //             console.log("load: Pack 2");
+            //         }
+            //     }
+            // ];
+        },
+        onView:async (i,v,name,d)=>{
+            if(name == localStorage.getItem("activePack")){
+                d.classList.add("activePack");
+            }
+
+            let removeBtn = document.createElement("button");
+            removeBtn.classList.add("remove-btn");
+            removeBtn.textContent = "X";
+            d.appendChild(removeBtn);
+
+            removeBtn.addEventListener("click",async e=>{
+                e.stopImmediatePropagation();
+                e.stopPropagation();
+
+                let res = await removeFromRecentFiles(v.handle);
+                if(res) d.remove();
+
+                if(await curPack.h.isSameEntry(v.handle)){
+                    cmds.reset.run();
+                }
+            });
+        }
+    },
+    openPack:{
+        title:"Open Pack",
+        key:"Ctrl+O",
         run:()=>{
-            CustomPack.reload();
+            reloadPack(true);
+        }
+    },
+    reloadPack:{
+        title:"Reload Pack",
+        key:"Alt+F, Shift+R",
+        run:()=>{
+            reloadPack();
         }
     },
     regenGlobalVars:{
         title:"Regenerate Global Vars",
-        key:"Alt+G",
+        key:"Alt+G, Shift+G",
         run:()=>{
             genGlobalVars();
         }
@@ -230,13 +546,13 @@ let cmds = {
         title:"Reset Tweaks",
         key:"Alt+R",
         run:()=>{
-            localStorage.clear();
+            clearStorage();
             clearCSS();
             curPack = null;
         }
     },
     customCSS:{
-        title:"Apply Custom CSS File",
+        title:"Apply Custom CSS File (Deprecated)",
         key:"Alt+C",
         run:async ()=>{
             let [file] = await showOpenFilePicker({
@@ -253,6 +569,15 @@ let cmds = {
         }
     }
 };
+let cmdsList = [
+    cmds.openPack,
+    cmds.recentPacks,
+    {type:"hr"},
+    cmds.reloadPack,
+    cmds.regenGlobalVars,
+    cmds.reset,
+    cmds.customCSS,
+];
 
 function showCmdPalette(){
     let existing = document.querySelector(".__tweaks-cmd-palette");
@@ -262,66 +587,87 @@ function showCmdPalette(){
     }
     let cont = document.createElement("div");
     cont.className = "__tweaks-cmd-palette";
-    cont.style = `
-        position:absolute;
-        top:10px;
-        left:50%;
-        transform:translate(-50%,0px);
-        background-color:#333;
-        border:solid 1px #111;
-        padding:5px;
-        border-radius:5px;
-        z-index:999;
-        color:#eee;
-        font-size:10px;
-        box-shadow:0px 5px 10px rgba(0,0,0,0.3);
-    `;
 
-    let ok = Object.keys(cmds);
+    // let ok = Object.keys(cmds);
+
 
     let heading = document.createElement("div");
     heading.innerHTML = `
-        <div style="margin:5px;font-size:11px;color:#ccc;margin-bottom:5px">Command Palette</div>
+        <div class="__tweaks-cmd-title">Command Palette</div>
     `;
     cont.appendChild(heading);
     let hr = document.createElement("hr");
-    hr.style.margin = "5px";
     cont.appendChild(hr);
 
-    for(const id of ok){
-        let cmd = cmds[id];
+    function addItem(cmd,cont1){
         let d = document.createElement("div");
-        d.innerHTML = `
-            <div>${cmd.title}</div>
-            <div style="color:#ccc;font-size:8px">${cmd.key}</div>
-        `;
-        d.style = `
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-            padding:4px 7px;
-            user-select:none;
-            -webkit-user-select:none;
-            border-radius:3px;
-            gap:30px;
-            cursor:pointer;
-        `;
-        cont.appendChild(d);
+        d.className = "__tweaks-cmd";
 
-        d.addEventListener("mouseenter",e=>{
-            d.style.backgroundColor = "#555";
-        });
-        d.addEventListener("mouseleave",e=>{
-            d.style.backgroundColor = null;
-        });
+        if("run" in cmd){
+            d.innerHTML = `
+                <div>${cmd.title}</div>
+                ${cmd.key ? `<div class="__tweaks-cmd-keybind">${cmd.key}</div>` : ""}
+            `;
+            cont1.appendChild(d);
 
-        d.addEventListener("click",e=>{
-            cmd.run();
-            cont.remove();
-        });
+            d.addEventListener("click",e=>{
+                cmd.run();
+                cont.remove();
+            });
+        }
+        else{
+            d.classList.add("__tweaks-cmd-folder");
+            d.innerHTML = `
+                <div>${cmd.title}</div>
+                <div>></div>
+            `;
+            cont1.appendChild(d);
+
+            let newCont = document.createElement("div");
+            newCont.className = "__tweaks-cmd-subfolder __tweaks-cmd-palette";
+            newCont.style.display = "none";
+            d.appendChild(newCont);
+            d.addEventListener("mouseenter",async e=>{
+                newCont.innerHTML = "";
+                newCont.style.display = "block";
+
+                let cmds = await cmd.getCmds();
+                let i = 0;
+                for(const c of cmds){
+                    if(testType(c,newCont)) continue;
+                    let dd = addItem(c,newCont);
+                    if(cmd.onView) cmd.onView(i,c,cmd.title,dd);
+                    i++;
+                }
+            });
+            d.addEventListener("mouseleave",e=>{
+                newCont.innerHTML = "";
+                newCont.style.display = "none";
+            });
+        }
+
+        return d;
     }
 
-    document.body.insertBefore(cont,document.body.children[0]);
+    function testType(cmd,cont){
+        if("type" in cmd){
+            let type = cmd.type;
+            if(type == "hr"){
+                let hr = document.createElement("hr");
+                cont.appendChild(hr);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    for(const cmd of cmdsList){
+        if(testType(cmd,cont)) continue;
+        addItem(cmd,cont);
+    }
+
+    // document.body.insertBefore(cont,document.body.children[0]);
+    document.body.appendChild(cont);
 }
 
 function loadPack(){
@@ -334,6 +680,19 @@ function loadPack(){
 
     let p = CustomPack.load(o);
     console.log("loaded: ",p);
+
+    let activePack = localStorage.getItem("activePack");
+    (async ()=>{
+        await dbLoadedProm;
+        getRecentFiles().then(list=>{
+            let q = list.find(v=>v.handle.name == activePack);
+            if(q){
+                p.h = q.handle;
+                console.log(">> Automatically found and associated handle");
+            }
+            else console.log(">> Failed to find handle associated with pack");
+        });
+    })();
 }
 loadPack();
 
@@ -362,7 +721,8 @@ init();
 
 class Obj{
     constructor(/**@type {HTMLElement}*/e){
-        this.ref = e.cloneNode(true);
+        // this.ref = e.cloneNode(true);
+        this.ref = e;
         let a = this.ref.querySelector("a");
         this.ref.style.margin = "0px";
         
@@ -549,7 +909,7 @@ setInterval(()=>{
 },8000);
 setTimeout(()=>{
     run();
-},500);
+},100);
 
 // global vars
 function genGlobalVars(){
@@ -582,8 +942,16 @@ genGlobalVars();
 /**@type {Map<string,HTMLElement>} */
 let defineHTMLReg = new Map();
 
+/**@type {HTMLElement}*/
+let __cmd;
 function readCSSCmds(){
-    let __cmd = document.createElement("div");
+    for(const e of allCustomElms){
+        removeCustomElm(e);
+    }
+    allCustomElms = [];
+
+    if(__cmd) __cmd.remove();
+    __cmd = document.createElement("div");
     __cmd.className = "__cmds__";
     document.body.appendChild(__cmd);
     let s = getComputedStyle(__cmd);
@@ -606,7 +974,8 @@ function readCSSCmds(){
             console.log("GEN: ",gen);
 
             if(gen != "" && gen != "_"){ // blank values
-                let parts = gen.split(" ");
+                // let parts = gen.split(" ");
+                let parts = gen.match(/"[^"]*"|\S+/g);
                 for(let i = 0; i < parts.length; i++){
                     if(parts[i].startsWith('"')) parts[i] = parts[i].substring(1,parts[i].length-1);
                 }
@@ -626,7 +995,10 @@ function readCSSCmds(){
                                 elm.classList.add("child","child-"+i);
                                 if(parts[3]) elm.classList.add(parts[3]);
                             }
-                            if(elm) e.appendChild(elm);
+                            if(elm){
+                                addCustomElm(elm);
+                                e.appendChild(elm);
+                            }
                         }
                     }
                 }
@@ -639,7 +1011,7 @@ function readCSSCmds(){
                     if(ops1[2]) e.id = ops1[2];
                     if(ops1[3]) e.style = ops1[3];
                     
-                    console.log("Defined new HTML part: ",e);
+                    console.log("Defined new HTML part: ",e,parts[2]);
                     defineHTMLReg.set(id,e);
                 }
             }
@@ -649,16 +1021,39 @@ function readCSSCmds(){
         }
     }
 }
-readCSSCmds();
 
-// 
+/**@type {HTMLElement[]}*/
+let allCustomElms = [];
+
+function addCustomElm(/**@type {HTMLElement}*/elm){
+    allCustomElms.push(elm);
+
+    if(elm.classList.contains("roundbutton")){
+        setupBall(elm);
+    }
+}
+function removeCustomElm(/**@type {HTMLElement}*/elm){
+    if(elm.parentElement) elm.remove();
+
+    if(elm.classList.contains("roundbutton")){
+        let i = objs.findIndex(v=>v.ref == elm);
+        if(i != -1) objs.splice(i, 1);
+    }
+}
+
+//
 
 let all = document.querySelectorAll(".roundbutton");
-for(const a of all){
+function setupBall(/**@type {HTMLElement}*/a){
     let o = new Obj(a);
-    a.replaceWith(o.ref);
+    // a.replaceWith(o.ref);
     o.update();
     objs.push(o);
+}
+for(const a of all){
+    let b = a.cloneNode(true);
+    a.replaceWith(b);
+    setupBall(b);
 }
 
 update();
