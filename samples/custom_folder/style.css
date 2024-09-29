@@ -1,9 +1,21 @@
+.__cmds__{
+    /* --cmd-define-html:"roundbtn" {"tag":"div","className":"roundbutton"} "<a>Some Text</a>" */
+    /* --cmd-define-html:
+        "roundbtn" ["div","roundbutton"] "<a>Some Text</a>",
+        "test" ["div","btn"] "<button>Hi There!</button>" */
+    --cmd-define-html-1:"test" ["div","btn"] "<button>Hi There!</button>";
+
+
+    --cmd-define-html:"roundbtn" ["div","roundbutton","","position:absolute"] "<a></a>";
+    --cmd-gen-html:body $roundbtn 10;
+}
+
 body{
     background-color:#334;
     perspective: 1000px;
     transform-style:preserve-3d;
 
-    /* --cmd-gen-html:div 10 roundbutton; */
+    /* --cmd-gen-html:div 10; */
 }
 
 .roundbutton{
@@ -21,17 +33,17 @@ body{
     background:radial-gradient(transparent 10%, rgba(0,0,0,0.4));
     /* box-shadow:0px 7px 10px rgba(0,0,0,0.4); */
 
-    transform-style:preserve-3d;
-    transform:none;
-    transition:all 0.2s ease-out !important;
-    position:relative;
+    /* transform-style:preserve-3d; */
+    /* transform:none; */
+    /* transition:all 0.2s ease-out !important; */
+    /* position:relative; */
 
-    --cmd-gen-html:div 10;
+    /* --cmd-gen-html:div 10; */
 }
-.roundbutton:hover{
+/* .roundbutton:hover{
     transform:rotateX(45deg) rotatey(45deg);
-}
-.roundbutton::before{
+} */
+/* .roundbutton::before{
     content:"";
     position:absolute;
     top:20px;
@@ -43,7 +55,7 @@ body{
     border-radius:50%;
 
     animation:Test 0.5s;
-}
+} */
 
 @keyframes Test {
     0%{

@@ -364,9 +364,10 @@ class Obj{
     constructor(/**@type {HTMLElement}*/e){
         this.ref = e.cloneNode(true);
         let a = this.ref.querySelector("a");
+        this.ref.style.margin = "0px";
         
-        this.link = a.href;
-        this.text = a.textContent;
+        this.link = a ? a.href : "";
+        this.text = a ? a.textContent : "";
         this.w = e.getBoundingClientRect().width/2;
 
         this.x = Math.random()*(innerWidth-150);
@@ -435,14 +436,6 @@ let vDrag = 0.9995;
 let colDrag = 0.8;
 let maxVel = 1.5;
 
-let all = document.querySelectorAll(".roundbutton");
-for(const a of all){
-    let o = new Obj(a);
-    a.replaceWith(o.ref);
-    o.update();
-    objs.push(o);
-}
-
 function run(){
     timeStart = performance.now();
     
@@ -485,6 +478,8 @@ function update(){
 
         a.vx += a.ax;
         a.vy += a.ay;
+
+        // a.w = a.ref.getBoundingClientRect().width/2; // idk if this should run every frame
 
         let margin = a.w*2;
         if(a.x < 0){
@@ -556,9 +551,6 @@ setTimeout(()=>{
     run();
 },500);
 
-update();
-run();
-
 // global vars
 function genGlobalVars(){
     for(let i = 0; i < 50; i++){
@@ -567,23 +559,107 @@ function genGlobalVars(){
 }
 genGlobalVars();
 
-let allElms = document.querySelectorAll("*");
-for(const a of allElms){
-    /**@type {HTMLElement}*/
-    let e = a;
+// let allElms = document.querySelectorAll("*");
+// for(const a of allElms){
+//     /**@type {HTMLElement}*/
+//     let e = a;
     
-    // --cmd-gen-html: div 10
-    let gen = getComputedStyle(e).getPropertyValue("--cmd-gen-html");
-    console.log("GEN: ",gen);
-    if(gen != ""){
-        let parts = gen.split(" ");
-        let amt = parseInt(parts[1]);
-        for(let i = 0; i < amt; i++){
-            let elm = document.createElement(parts[0]);
-            elm.classList.add("child","child-"+i);
-            if(parts[2]) elm.classList.add(parts[2]);
-            e.appendChild(elm);
+//     // --cmd-gen-html: div 10
+//     let gen = getComputedStyle(e).getPropertyValue("--cmd-gen-html");
+//     console.log("GEN: ",gen);
+//     if(gen != "" && gen != "0"){
+//         let parts = gen.split(" ");
+//         let amt = parseInt(parts[1]);
+//         for(let i = 0; i < amt; i++){
+//             let elm = document.createElement(parts[0]);
+//             elm.classList.add("child","child-"+i);
+//             if(parts[2]) elm.classList.add(parts[2]);
+//             e.appendChild(elm);
+//         }
+//     }
+// }
+
+/**@type {Map<string,HTMLElement>} */
+let defineHTMLReg = new Map();
+
+function readCSSCmds(){
+    let __cmd = document.createElement("div");
+    __cmd.className = "__cmds__";
+    document.body.appendChild(__cmd);
+    let s = getComputedStyle(__cmd);
+
+    let props = [
+        "--cmd-define-html",
+        "--cmd-gen-html",
+    ];
+
+    for(const prop of props){
+        let time = 0;
+        
+        while(true){
+            if(time > 9999) break; // max number of iterations
+            
+            let checkStr = prop+(time ? "-"+time : "");
+            console.log("CHECK string: ",checkStr);
+            
+            let gen = s.getPropertyValue(checkStr);
+            console.log("GEN: ",gen);
+
+            if(gen != "" && gen != "_"){ // blank values
+                let parts = gen.split(" ");
+                for(let i = 0; i < parts.length; i++){
+                    if(parts[i].startsWith('"')) parts[i] = parts[i].substring(1,parts[i].length-1);
+                }
+                
+                if(prop == "--cmd-gen-html"){
+                    let es = document.querySelectorAll(parts[0]);
+                    for(const e of es){
+                        let amt = parseInt(parts[2]);
+                        for(let i = 0; i < amt; i++){
+                            let elm;
+                            if(parts[1].startsWith("$")){
+                                let partId = parts[1].substring(1);
+                                elm = defineHTMLReg.get(partId).cloneNode(true);
+                            }
+                            else{
+                                elm = document.createElement(parts[1]);
+                                elm.classList.add("child","child-"+i);
+                                if(parts[3]) elm.classList.add(parts[3]);
+                            }
+                            if(elm) e.appendChild(elm);
+                        }
+                    }
+                }
+                else if(prop == "--cmd-define-html"){
+                    let id = parts[0];
+                    let ops1 = JSON.parse(parts[1]);
+                    let e = document.createElement(ops1[0] ?? "div");
+                    e.innerHTML = parts[2];
+                    if(ops1[1]) e.className = ops1[1];
+                    if(ops1[2]) e.id = ops1[2];
+                    if(ops1[3]) e.style = ops1[3];
+                    
+                    console.log("Defined new HTML part: ",e);
+                    defineHTMLReg.set(id,e);
+                }
+            }
+            else break;
+
+            time++;
         }
     }
-
 }
+readCSSCmds();
+
+// 
+
+let all = document.querySelectorAll(".roundbutton");
+for(const a of all){
+    let o = new Obj(a);
+    a.replaceWith(o.ref);
+    o.update();
+    objs.push(o);
+}
+
+update();
+run();
