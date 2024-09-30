@@ -15,7 +15,8 @@
 	},
 	"content_scripts": [
 		{
-			"matches": ["https://n0code.net/work/teaching/courses/index.html"],
+			"old_matches": ["https://n0code.net/work/teaching/courses/index.html"],
+			"matches": ["https://n0code.net/*"],
 			"js": ["content.js"],
 			"css": ["base.css"]
 		}

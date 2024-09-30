@@ -1,12 +1,20 @@
 console.log("n0code tweaks loaded");
-document.body.style.overflow = "hidden";
 let root = document.body.parentElement;
 
+let isCoursesPage = (location.pathname == "/work/teaching/courses/index.html");
+if(isCoursesPage){
+    document.body.style.overflow = "hidden";
+}
+
 function clearStorage(){
+    root.className = "";
     localStorage.removeItem("__customCSS");
     localStorage.removeItem("__customPack");
     localStorage.removeItem("activePack");
 }
+
+/**@type {HTMLElement[]}*/
+let allCustomElms = [];
 
 // database
 
@@ -53,6 +61,8 @@ dbReq.addEventListener("blocked",e=>{
 
 /**@returns {Promise<any[]>}*/
 async function getRecentFiles(){
+    await dbLoadedProm;
+
     let list = [];
 
     let t = db.transaction(["recents"],"readonly");
@@ -64,7 +74,6 @@ async function getRecentFiles(){
         cur.onsuccess = function(e){
             let cursor = (e.target).result;
             if(!cursor){
-                // list.sort((a,b)=>new Date(a).getTime() - new Date(b).getTime())
                 list.reverse();
                 resolve(list);
                 return;
@@ -77,25 +86,6 @@ async function getRecentFiles(){
         };
         cur.onerror = function(e){
             console.warn("Failed to open cursor");
-            resolve(null);
-        };
-    })
-}
-/**@type {Promise<any[]>}*/
-async function getRecentFileKeys(){
-    let t = db.transaction(["recents"],"readonly");
-    let store = t.objectStore("recents");
-
-    return new Promise(resolve=>{
-        let req = store.getAllKeys();
-        req.onsuccess = function(e){
-            console.log("success");
-            let list = (e.target).result;
-            list.sort((a,b)=>new Date(a).getTime() - new Date(b).getTime());
-            resolve(list);
-        };
-        req.onerror = function(e){
-            console.warn("Failed to get recent file keys");
             resolve(null);
         };
     })
@@ -277,14 +267,62 @@ class CustomPack{
     }
     /**@type {FileSystemDirectoryHandle} */
     h;
+    config;
 
-    postLoad(){
+    async postLoad(){
+        if(this.disabled) return;
+
         readCSSCmds();
-        console.log("RUN POST",objs.length);
+        console.log("RUN POST",{hasHandle:this.h != null});
         run();
     }
 
+    async parseConfig(){
+        if(this.h){
+            /**@type {FileSystemFileHandle}*/
+            let conf;
+            try{
+                conf = await this.h.getFileHandle("config.json");
+            }
+            catch (e) {
+                // no config file found
+            }
+
+            if(conf){
+                let text = await (await conf.getFile()).text();
+                this.config = JSON.parse(text);
+                console.log("LOADED CONFIG: ",this.config);
+                this.loadConfig();
+            }
+        }
+    }
+    loadConfig(){
+        let c = this.config;
+        if(!c) return;
+
+        let style = c.style;
+        if(style?.auto_invert){
+            root.classList.add("auto-invert");
+        }
+        /* DEPRECATED for now */
+        // if(!style?.any_page){
+        //     if(location.pathname != "/work/teaching/courses/index.html"){
+        //         this.disable();
+        //     }
+        // }
+    }
+
+    disabled = false;
+    disable(){
+        clearCSS();
+        for(const c of allCustomElms){
+            removeCustomElm(c);
+        }
+    }
+
     async reload(force=false){
+        if(this.disabled) return;
+
         let handle = this.h;
         if(force) handle = null;
         if(!handle){
@@ -332,13 +370,14 @@ class CustomPack{
             }
         }
         await search(handle);
+        await reg.parseConfig();
 
         console.log("REG:",reg);
 
         reg.registerAll();
         reg.save();
 
-        this.postLoad();
+        await reg.postLoad();
     }
     
     /**@type {RegImg[]} */
@@ -352,21 +391,37 @@ class CustomPack{
             images:this.images.map(v=>v.serialize()),
             css:this.css.map(v=>v.serialize())
         };
+        if(this.config) o.config = this.config;
         let s = JSON.stringify(o);
+        console.log("-----save:",o,this.config);
         localStorage.setItem("__customPack",s);
     }
-    static load(pack){
-        let p = new CustomPack();
+    static async load(pack){
+        let list = await getRecentFiles();
+        let activePack = localStorage.getItem("activePack");
+        let h = undefined;
+        if(list){
+            let q = list.find(v=>v.handle.name == activePack);
+            h = q?.handle;
+        }
+
+        //
+
+        let p = new CustomPack(h);
         for(const a of pack.images){
             p.images.push(RegImg.deserialize(a));
         }
         for(const a of pack.css){
             p.css.push(RegCSS.deserialize(a));
         }
+        if(pack.config) p.config = pack.config;
+
+        console.log("-------loading: ",pack);
 
         p.registerAll();
 
         curPack = p;
+        if(p.config) p.loadConfig();
         setTimeout(()=>{ p.postLoad(); },0);
         return p;
     }
@@ -1021,9 +1076,6 @@ function readCSSCmds(){
         }
     }
 }
-
-/**@type {HTMLElement[]}*/
-let allCustomElms = [];
 
 function addCustomElm(/**@type {HTMLElement}*/elm){
     allCustomElms.push(elm);

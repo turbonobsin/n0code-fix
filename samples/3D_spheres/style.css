@@ -3,7 +3,13 @@
     --cmd-gen-html:".roundbutton" "$world" 1;
 }
 
+a{
+    color:mediumpurple;
+}
+
 body{
+    font-family:'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+
     /*--c0:rgb(73, 64, 191);*/
     --c0: hsl(calc(0.6786682558761752 * 360deg), 50%, 50%);
     --c1: hsl(calc(0 * 360deg), 50%, 50%);
@@ -27,7 +33,8 @@ body{
     );
     /*background-size:100px 400px;*/
 
-    height:100vh;
+    min-height:100vh;
+    height:100%;
 }
 
 .roundbutton:nth-child(2) {
