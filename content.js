@@ -1030,7 +1030,7 @@ function readCSSCmds(){
 
             if(gen != "" && gen != "_"){ // blank values
                 // let parts = gen.split(" ");
-                // let parts = gen.match(/"[^"]*"|\S+/g); // doesn't accord for spaces after commas
+                // let parts = gen.match(/"[^"]*"|\S+/g); // doesn't account for spaces after commas
                 let parts = gen.match(/(?:[^\s"'\(\)\[\]\{\}]+|"[^"]*"|'[^']*'|\([^\)]*\)|\[[^\]]*\]|\{[^\}]*\})+/g);
                 for(let i = 0; i < parts.length; i++){
                     if(parts[i].startsWith('"')) parts[i] = parts[i].substring(1,parts[i].length-1);
