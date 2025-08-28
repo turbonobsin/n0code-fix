@@ -16,7 +16,10 @@
 	"content_scripts": [
 		{
 			"old_matches": ["https://n0code.net/work/teaching/courses/index.html"],
-			"matches": ["https://n0code.net/*"],
+			"matches": [
+				"https://n0code.net/*",
+				"https://artfulmonkeys.xyz/*"
+			],
 			"js": ["content.js"],
 			"css": ["base.css"]
 		}
